@@ -73,8 +73,8 @@ To become the default interface for real-world decision-making.
 
 Jason Frost
 Founder, Cadabble Inc.
-📧 ask
-🌐 Coming soon
+📧 sales@cadabble.com
+🌐 https://cadabble.com
 
 ⸻
 
