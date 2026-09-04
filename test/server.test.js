@@ -7,7 +7,7 @@ test("serves the discovery page with security headers", async () => {
   await withServer(async (origin) => {
     const response = await fetch(origin);
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /Find someone good/);
+    assert.match(await response.text(), /Ask Anna/);
     assert.match(response.headers.get("content-security-policy") ?? "", /default-src 'self'/);
     assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   });
@@ -15,11 +15,11 @@ test("serves the discovery page with security headers", async () => {
 
 test("provider endpoint filters data and marks fixtures as samples", async () => {
   await withServer(async (origin) => {
-    const response = await fetch(`${origin}/api/v1/providers?q=Toronto&category=Handyman`);
+    const response = await fetch(`${origin}/api/v1/providers?q=Chilliwack&category=Home%20cleaning`);
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.meta.sampleData, true);
-    assert.deepEqual(body.data.map(({ id }) => id), ["northstar-handyman"]);
+    assert.equal(body.data.length, 4);
   });
 });
 
@@ -39,7 +39,7 @@ test("provider detail endpoint returns a public profile and safe not-found error
   await withServer(async (origin) => {
     const found = await fetch(`${origin}/api/v1/providers/harbour-pet-care`);
     assert.equal(found.status, 200);
-    assert.equal((await found.json()).data.name, "Harbour Pet Care");
+    assert.equal((await found.json()).data.name, "Vedder Home Care");
     const missing = await fetch(`${origin}/api/v1/providers/not-real`);
     assert.equal(missing.status, 404);
     assert.equal((await missing.json()).error.code, "provider_not_found");

@@ -67,13 +67,41 @@ async function showProvider(providerId) {
     addFact(facts, "Service", provider.category);
     addFact(facts, "Location", `${provider.city}, ${provider.province}`);
     addFact(facts, "Pricing", `${formatPrice(provider.priceFromCents)} / ${provider.priceUnit}`);
-    const note = element("p", "preview-note", "This is a product preview. Live availability and booking are not yet enabled.");
-    const contact = element("a", "request-button", "Join booking early access");
-    contact.href = `mailto:sales@cadabble.com?subject=${encodeURIComponent(`Booking early access: ${provider.name}`)}`;
-    dialogContent.replaceChildren(status, heading, element("p", "dialog-description", provider.description), facts, note, contact);
+    const note = element("p", "preview-note", "Anna will send one request to this sample provider. It stays pending until the business accepts. No payment is collected.");
+    dialogContent.replaceChildren(status, heading, element("p", "dialog-description", provider.description), facts, note, buildBookingForm(provider));
   } catch (error) {
     dialogContent.replaceChildren(messageCard(error instanceof Error ? error.message : "Provider details are unavailable."));
   }
+}
+
+function buildBookingForm(provider) {
+  const form = element("form", "booking-form");
+  form.append(field("Your name", "customerName", "text", "Alex Chen"), field("Email", "customerEmail", "email", "alex@example.ca"), field("Requested date", "requestedDate", "date"), selectField("Time window", "timeWindow", [["morning", "Morning"], ["afternoon", "Afternoon"], ["evening", "Evening"]]), field("Chilliwack service address", "serviceAddress", "text", "123 Example St, Chilliwack, BC"), field("What needs cleaning?", "note", "text", "Kitchen and two bathrooms"));
+  const status = element("p", "booking-status"); status.setAttribute("aria-live", "polite");
+  const submit = element("button", "request-button", "Ask Anna to request this booking"); submit.type = "submit";
+  form.append(status, submit);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault(); submit.disabled = true; status.textContent = "Anna is securely sending your request…";
+    const data = Object.fromEntries(new FormData(form)); data.providerId = provider.id;
+    try {
+      const response = await fetch("/api/v1/bookings", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID().replaceAll("-", "") }, body: JSON.stringify(data) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message ?? "The request could not be sent.");
+      form.replaceChildren(element("strong", "booking-success", "Request sent — awaiting the business"), element("p", "", `Anna is tracking request ${payload.data.id.slice(0, 8)}. No payment was taken.`));
+    } catch (error) { status.textContent = error instanceof Error ? error.message : "The request could not be sent."; submit.disabled = false; }
+  });
+  return form;
+}
+
+function field(label, name, type, placeholder = "") {
+  const wrapper = element("label", "booking-field", label); const input = document.createElement("input");
+  Object.assign(input, { name, type, placeholder, required: true }); if (type === "date") input.min = new Date().toISOString().slice(0, 10);
+  wrapper.append(input); return wrapper;
+}
+
+function selectField(label, name, options) {
+  const wrapper = element("label", "booking-field", label); const select = document.createElement("select"); select.name = name;
+  options.forEach(([value, text]) => { const option = element("option", "", text); option.value = value; select.append(option); }); wrapper.append(select); return wrapper;
 }
 
 function addFact(list, label, value) {
