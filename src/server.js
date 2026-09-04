@@ -2,8 +2,10 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { categories, findProviderById, searchProviders } from "./catalog.js";
+import { findProviderById, searchProviders } from "./catalog.js";
 import { providers } from "./data/providers.js";
+import { serviceCategories } from "./data/service-categories.js";
+import { DiscoveryStore } from "./discovery.js";
 import { BookingStore, publicBooking } from "./bookings.js";
 
 const publicDirectory = resolve(fileURLToPath(new URL("../public", import.meta.url)));
@@ -16,7 +18,7 @@ const contentTypes = {
   ".svg": "image/svg+xml",
 };
 
-export function buildServer({ bookingStore = new BookingStore() } = {}) {
+export function buildServer({ bookingStore = new BookingStore(), discoveryStore = new DiscoveryStore({ providers, categories: serviceCategories }) } = {}) {
   return createServer(async (request, response) => {
     setSecurityHeaders(response);
 
@@ -26,6 +28,10 @@ export function buildServer({ bookingStore = new BookingStore() } = {}) {
     }
 
     const url = new URL(request.url, "http://localhost");
+    if (url.pathname === "/api/v1/discovery" && request.method === "POST") {
+      await handleDiscovery(request, response, discoveryStore);
+      return;
+    }
     if (url.pathname === "/api/v1/bookings" && request.method === "POST") {
       await handleBookingCreate(request, response, bookingStore);
       return;
@@ -67,7 +73,7 @@ async function handleBookingCreate(request, response, store) {
   const error = validateBooking(body);
   if (error) { sendJson(response, 400, { error: { code: "invalid_booking", message: error } }); return; }
   const provider = findProviderById(providers, body.providerId);
-  if (!provider || provider.city !== "Chilliwack" || provider.category !== "Home cleaning") {
+  if (!provider || provider.city !== "Chilliwack" || !provider.serviceCategoryIds.includes("home-cleaning") || !provider.bookingEnabled) {
     sendJson(response, 404, { error: { code: "service_not_found", message: "That launch service is unavailable." } }); return;
   }
   const result = store.create({ ...body, provider, customerEmail: body.customerEmail.toLowerCase(), idempotencyKey });
@@ -122,17 +128,32 @@ function handleProviderSearch(url, response) {
     return;
   }
 
-  if (categoryInput && !categories.includes(categoryInput)) {
+  if (categoryInput && !serviceCategories.some((category) => category.id === categoryInput)) {
     sendJson(response, 400, { error: { code: "invalid_category", message: "Choose a supported service category." } });
     return;
   }
 
-  const criteria = categoryInput ? { query, category: categoryInput } : { query };
+  const criteria = categoryInput ? { query, categoryId: categoryInput } : { query };
   const results = searchProviders(providers, criteria);
   sendJson(response, 200, {
     data: results,
     meta: { count: results.length, sampleData: true },
   });
+}
+
+async function handleDiscovery(request, response, store) {
+  if (!isSameOrigin(request) || request.headers["content-type"] !== "application/json") {
+    sendJson(response, 403, { error: { code: "request_not_allowed", message: "Use Anna's secure discovery form." } }); return;
+  }
+  let body;
+  try { body = await readJson(request); } catch { sendJson(response, 400, { error: { code: "invalid_json", message: "Check your request and try again." } }); return; }
+  const query = typeof body?.query === "string" ? body.query.trim() : "";
+  const location = typeof body?.location === "string" ? body.location.trim() : "";
+  if (query.length < 2 || query.length > 200 || location.length > 120) {
+    sendJson(response, 400, { error: { code: "invalid_discovery", message: "Describe a service in 2–200 characters and keep the location under 120 characters." } }); return;
+  }
+  const result = await store.discover({ query, location });
+  sendJson(response, 200, { data: result, meta: { externalSearchAvailable: Boolean(store.externalSearch), leadsCreated: result.externalBusinesses.length } });
 }
 
 async function serveStatic(pathname, response) {

@@ -15,7 +15,7 @@ test("serves the discovery page with security headers", async () => {
 
 test("provider endpoint filters data and marks fixtures as samples", async () => {
   await withServer(async (origin) => {
-    const response = await fetch(`${origin}/api/v1/providers?q=Chilliwack&category=Home%20cleaning`);
+    const response = await fetch(`${origin}/api/v1/providers?q=Chilliwack&category=home-cleaning`);
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.meta.sampleData, true);
@@ -37,12 +37,21 @@ test("provider endpoint rejects unsupported categories and oversized input", asy
 
 test("provider detail endpoint returns a public profile and safe not-found errors", async () => {
   await withServer(async (origin) => {
-    const found = await fetch(`${origin}/api/v1/providers/harbour-pet-care`);
+    const found = await fetch(`${origin}/api/v1/providers/vedder-cleaning-demo`);
     assert.equal(found.status, 200);
-    assert.equal((await found.json()).data.name, "Vedder Home Care");
+    assert.equal((await found.json()).data.name, "Vedder Cleaning Demo");
     const missing = await fetch(`${origin}/api/v1/providers/not-real`);
     assert.equal(missing.status, 404);
     assert.equal((await missing.json()).error.code, "provider_not_found");
+  });
+});
+
+test("Anna discovery defaults transparently and returns sample-only matches", async () => {
+  await withServer(async (origin) => {
+    const response = await fetch(`${origin}/api/v1/discovery`, { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify({ query: "home cleaning" }) });
+    const body = await response.json();
+    assert.equal(response.status, 200); assert.equal(body.data.location.usedDefault, true);
+    assert.equal(body.data.providers.length, 4); assert.ok(body.data.providers.every((provider) => provider.status === "sample"));
   });
 });
 

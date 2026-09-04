@@ -1,139 +1,67 @@
 const form = document.querySelector("#search-form");
 const input = document.querySelector("#search");
+const locationInput = document.querySelector("#location");
 const results = document.querySelector("#results");
 const empty = document.querySelector("#empty");
 const resultCount = document.querySelector("#result-count");
 const filters = document.querySelector("#filters");
 const dialog = document.querySelector("#provider-dialog");
 const dialogContent = document.querySelector("#dialog-content");
-let selectedCategory = "";
 
-async function loadProviders() {
+async function discover() {
   results.setAttribute("aria-busy", "true");
-  const params = new URLSearchParams({ q: input.value });
-  if (selectedCategory) params.set("category", selectedCategory);
-
+  empty.hidden = true;
   try {
-    const response = await fetch(`/api/v1/providers?${params}`);
+    const response = await fetch("/api/v1/discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: input.value, location: locationInput.value }) });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error?.message ?? "Search is unavailable.");
-    renderProviders(payload.data);
+    if (!response.ok) throw new Error(payload.error?.message ?? "Discovery is unavailable.");
+    renderDiscovery(payload.data);
   } catch (error) {
-    results.replaceChildren(messageCard(error instanceof Error ? error.message : "Search is unavailable."));
-    empty.hidden = true;
+    results.replaceChildren(messageCard(error instanceof Error ? error.message : "Discovery is unavailable."));
     resultCount.textContent = "";
-  } finally {
-    results.removeAttribute("aria-busy");
-  }
+  } finally { results.removeAttribute("aria-busy"); }
 }
 
-function renderProviders(providers) {
-  results.replaceChildren(...providers.map(providerCard));
-  empty.hidden = providers.length !== 0;
-  resultCount.textContent = `${providers.length} sample ${providers.length === 1 ? "provider" : "providers"}`;
+function renderDiscovery(data) {
+  const cards = [];
+  const summary = element("article", "anna-summary");
+  summary.append(element("strong", "", data.needsLocation ? "Anna needs your location" : `Anna understood: ${data.intent.category.name}`));
+  summary.append(element("p", "", data.needsLocation ? "Tell Anna your city or postal code before she searches for a nearby service." : data.location.usedDefault ? "Using Chilliwack, BC for this launch search. You can change the location above." : `Searching near ${data.location.location}.`));
+  if (data.safeguards.message) summary.append(element("p", "safety-note", data.safeguards.message));
+  cards.push(summary);
+  data.providers.forEach((provider) => cards.push(providerCard(provider)));
+  data.externalBusinesses.forEach((business) => cards.push(externalCard(business)));
+  results.replaceChildren(...cards);
+  const count = data.providers.length + data.externalBusinesses.length;
+  resultCount.textContent = `${count} ${count === 1 ? "option" : "options"}`;
+  empty.hidden = data.needsLocation || count !== 0;
 }
 
 function providerCard(provider) {
-  const article = document.createElement("article");
-  article.className = "provider-card";
-  const top = element("div", "card-top");
-  top.append(element("span", "category", provider.category), element("span", provider.verified ? "verified" : "reviewing", provider.verified ? "✓ Sample verified" : "Review pending"));
-  article.append(top, element("h3", "", provider.name), element("p", "location", `${provider.city}, ${provider.province}`), element("p", "description", provider.description));
-  const tags = element("div", "tags");
-  provider.tags.forEach((tag) => tags.append(element("span", "", tag)));
-  const bottom = element("div", "card-bottom");
-  const price = element("p", "price");
-  price.append("From ", element("strong", "", formatPrice(provider.priceFromCents)), ` / ${provider.priceUnit}`);
-  const detailsButton = element("button", "details-button", "View details →");
-  detailsButton.type = "button";
-  detailsButton.addEventListener("click", () => showProvider(provider.id));
-  bottom.append(price, detailsButton);
-  article.append(tags, bottom);
+  const article = element("article", "provider-card");
+  article.append(element("span", "reviewing", "SAMPLE BUSINESS · FICTIONAL DEMO"), element("h3", "", provider.name), element("p", "location", `${provider.city}, ${provider.province}`), element("p", "description", provider.description), element("p", "preview-note", "Not a verified business listing. Pricing, availability, licensing, insurance, and ratings are not claimed."));
+  const button = element("button", "details-button", "View sample →"); button.type = "button"; button.addEventListener("click", () => showProvider(provider.id)); article.append(button); return article;
+}
+
+function externalCard(business) {
+  const article = element("article", "provider-card");
+  article.append(element("span", "reviewing", "NOT YET AVAILABLE THROUGH CADABBLE"), element("h3", "", business.name), element("p", "location", business.serviceArea || "Service area not verified"), element("p", "preview-note", "Public listing only. Not affiliated, verified, or immediately bookable through Cadabble. Contact the business directly and mention you found it through Cadabble."));
+  if (business.website) { const link = element("a", "details-button", "Visit public website →"); link.href = business.website; link.rel = "noopener noreferrer"; link.target = "_blank"; article.append(link); }
   return article;
 }
 
-async function showProvider(providerId) {
-  dialogContent.replaceChildren(element("p", "dialog-loading", "Loading provider details…"));
-  dialog.showModal();
-  try {
-    const response = await fetch(`/api/v1/providers/${encodeURIComponent(providerId)}`);
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error?.message ?? "Provider details are unavailable.");
-    const provider = payload.data;
-    const heading = element("h2", "", provider.name);
-    heading.id = "dialog-title";
-    const status = element("p", provider.verified ? "verified dialog-status" : "reviewing dialog-status", provider.verified ? "✓ Sample verified profile" : "Verification review pending");
-    const facts = element("dl", "provider-facts");
-    addFact(facts, "Service", provider.category);
-    addFact(facts, "Location", `${provider.city}, ${provider.province}`);
-    addFact(facts, "Pricing", `${formatPrice(provider.priceFromCents)} / ${provider.priceUnit}`);
-    const note = element("p", "preview-note", "Anna will send one request to this sample provider. It stays pending until the business accepts. No payment is collected.");
-    dialogContent.replaceChildren(status, heading, element("p", "dialog-description", provider.description), facts, note, buildBookingForm(provider));
-  } catch (error) {
-    dialogContent.replaceChildren(messageCard(error instanceof Error ? error.message : "Provider details are unavailable."));
-  }
+async function showProvider(id) {
+  dialog.showModal(); dialogContent.replaceChildren(element("p", "", "Loading sample…"));
+  try { const response = await fetch(`/api/v1/providers/${encodeURIComponent(id)}`); const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message); const provider = payload.data; const title = element("h2", "", provider.name); title.id = "dialog-title"; dialogContent.replaceChildren(element("p", "reviewing", "Fictional sample—not verified"), title, element("p", "", provider.description), element("p", "preview-note", "This sample supports comparison testing. Anna cannot claim real availability or submit a real booking to it.")); }
+  catch (error) { dialogContent.replaceChildren(messageCard(error.message || "Sample unavailable.")); }
 }
 
-function buildBookingForm(provider) {
-  const form = element("form", "booking-form");
-  form.append(field("Your name", "customerName", "text", "Alex Chen"), field("Email", "customerEmail", "email", "alex@example.ca"), field("Requested date", "requestedDate", "date"), selectField("Time window", "timeWindow", [["morning", "Morning"], ["afternoon", "Afternoon"], ["evening", "Evening"]]), field("Chilliwack service address", "serviceAddress", "text", "123 Example St, Chilliwack, BC"), field("What needs cleaning?", "note", "text", "Kitchen and two bathrooms"));
-  const status = element("p", "booking-status"); status.setAttribute("aria-live", "polite");
-  const submit = element("button", "request-button", "Ask Anna to request this booking"); submit.type = "submit";
-  form.append(status, submit);
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault(); submit.disabled = true; status.textContent = "Anna is securely sending your request…";
-    const data = Object.fromEntries(new FormData(form)); data.providerId = provider.id;
-    try {
-      const response = await fetch("/api/v1/bookings", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID().replaceAll("-", "") }, body: JSON.stringify(data) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message ?? "The request could not be sent.");
-      form.replaceChildren(element("strong", "booking-success", "Request sent — awaiting the business"), element("p", "", `Anna is tracking request ${payload.data.id.slice(0, 8)}. No payment was taken.`));
-    } catch (error) { status.textContent = error instanceof Error ? error.message : "The request could not be sent."; submit.disabled = false; }
-  });
-  return form;
-}
+function messageCard(message) { const card = element("div", "error-card"); card.append(element("strong", "", "Anna couldn't complete that search."), element("p", "", message)); return card; }
+function element(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; }
 
-function field(label, name, type, placeholder = "") {
-  const wrapper = element("label", "booking-field", label); const input = document.createElement("input");
-  Object.assign(input, { name, type, placeholder, required: true }); if (type === "date") input.min = new Date().toISOString().slice(0, 10);
-  wrapper.append(input); return wrapper;
-}
-
-function selectField(label, name, options) {
-  const wrapper = element("label", "booking-field", label); const select = document.createElement("select"); select.name = name;
-  options.forEach(([value, text]) => { const option = element("option", "", text); option.value = value; select.append(option); }); wrapper.append(select); return wrapper;
-}
-
-function addFact(list, label, value) {
-  list.append(element("dt", "", label), element("dd", "", value));
-}
-
-function messageCard(message) {
-  const card = element("div", "error-card");
-  card.append(element("strong", "", "We couldn't load providers."), element("p", "", message));
-  return card;
-}
-
-function element(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function formatPrice(cents) {
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(cents / 100);
-}
-
-form.addEventListener("submit", (event) => { event.preventDefault(); loadProviders(); });
-filters.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-category]");
-  if (!button) return;
-  selectedCategory = button.dataset.category;
-  filters.querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === button));
-  loadProviders();
-});
+form.addEventListener("submit", (event) => { event.preventDefault(); discover(); });
+filters.addEventListener("click", (event) => { const button = event.target.closest("button[data-query]"); if (!button) return; input.value = button.dataset.query; filters.querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === button)); discover(); });
 dialog.querySelector(".dialog-close").addEventListener("click", () => dialog.close());
 dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
-
-loadProviders();
+input.value = "home cleaning in Chilliwack";
+discover();

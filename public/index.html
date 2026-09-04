@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Anna helps Chilliwack customers compare local services and send a secure booking request." />
+    <meta name="description" content="Anna helps Chilliwack customers discover and compare any legitimate local service without invented claims." />
     <title>Cadabble — Ask Anna in Chilliwack</title>
     <link rel="stylesheet" href="/styles.css" />
     <script src="/app.js" type="module"></script>
@@ -22,16 +22,18 @@
         <div class="hero-copy">
           <p class="eyebrow">Launching in Chilliwack, BC</p>
           <h1>Ask Anna.<br /><em>Choose with trust.</em></h1>
-          <p class="intro">Anna helps you compare multiple local options, choose one business, and securely request a home-cleaning booking. The business still confirms—Anna keeps everyone aligned.</p>
+          <p class="intro">Tell Anna what you need—from a nanny or garage-door repair to automotive, wellness, or professional help. She separates Cadabble options, samples, and public listings so you always know what is verified.</p>
         </div>
 
         <form class="search-card" id="search-form">
           <label for="search">What do you need help with?</label>
           <div class="search-row">
-            <input id="search" name="q" type="search" maxlength="80" placeholder="Try “cleaning in Chilliwack”" autocomplete="off" />
+            <input id="search" name="q" type="search" maxlength="200" placeholder="Try “garage-door repair”" autocomplete="off" />
             <button type="submit">Ask Anna <span aria-hidden="true">→</span></button>
           </div>
-          <p><span class="pulse" aria-hidden="true"></span> Secure request-to-book preview · no payment collected</p>
+          <label for="location">Location <span>(optional)</span></label>
+          <input id="location" name="location" maxlength="120" placeholder="Defaults to Chilliwack, BC" autocomplete="address-level2" />
+          <p><span class="pulse" aria-hidden="true"></span> Chilliwack launch preview · Anna never invents providers</p>
         </form>
       </section>
 
@@ -41,15 +43,15 @@
           <p id="result-count" aria-live="polite"></p>
         </div>
         <div class="filters" id="filters" aria-label="Filter providers">
-          <button class="active" data-category="" type="button">All services</button>
-          <button data-category="Home cleaning" type="button">Home cleaning</button>
-          <button data-category="Handyman" type="button">Handyman</button>
-          <button data-category="Pet care" type="button">Pet care</button>
-          <button data-category="Outdoor care" type="button">Outdoor care</button>
+          <button class="active" data-query="" type="button">All services</button>
+          <button data-query="home cleaning" type="button">Home cleaning</button>
+          <button data-query="auto services" type="button">Automotive</button>
+          <button data-query="fitness trainer" type="button">Health & fitness</button>
+          <button data-query="accounting" type="button">Professional</button>
         </div>
         <div class="provider-grid" id="results" aria-live="polite"></div>
         <div class="empty" id="empty" hidden>
-          <h3>No exact matches yet</h3><p>Try a broader service or another Canadian city.</p>
+          <h3>No Cadabble provider yet</h3><p>Anna recorded the unmet need for provider recruitment. No business, claim, or contact detail was invented.</p>
         </div>
       </section>
 

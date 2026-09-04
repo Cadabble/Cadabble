@@ -1,54 +1,8 @@
-/** @import { Provider } from "../catalog.js" */
-
-// Development-only fixtures. Do not replace these with generated claims or live-looking availability.
-/** @type {readonly Provider[]} */
+// Development-only fictional fixtures. They are never represented as real,
+// affiliated, verified, available, rated, licensed, or insured businesses.
 export const providers = [
-  {
-    id: "maple-home-cleaning",
-    name: "Fraser Home Cleaning",
-    category: "Home cleaning",
-    city: "Chilliwack",
-    province: "BC",
-    description: "Routine and deep cleaning for homes and condos.",
-    priceFromCents: 12000,
-    priceUnit: "visit",
-    verified: true,
-    tags: ["Eco-friendly options", "Chilliwack service area"],
-  },
-  {
-    id: "northstar-handyman",
-    name: "Valley Fresh Cleaning",
-    category: "Home cleaning",
-    city: "Chilliwack",
-    province: "BC",
-    description: "Flexible home cleaning for busy households and move-outs.",
-    priceFromCents: 13500,
-    priceUnit: "visit",
-    verified: true,
-    tags: ["Move-out cleaning", "Supplies included"],
-  },
-  {
-    id: "harbour-pet-care",
-    name: "Vedder Home Care",
-    category: "Home cleaning",
-    city: "Chilliwack",
-    province: "BC",
-    description: "Neighbourhood home cleaning with recurring service options.",
-    priceFromCents: 11500,
-    priceUnit: "visit",
-    verified: true,
-    tags: ["Recurring service", "Local team"],
-  },
-  {
-    id: "prairie-snow-yard",
-    name: "Sardis Daily Help",
-    category: "Home cleaning",
-    city: "Chilliwack",
-    province: "BC",
-    description: "Everyday cleaning help for kitchens, bathrooms, and shared spaces.",
-    priceFromCents: 9500,
-    priceUnit: "visit",
-    verified: false,
-    tags: ["Daily essentials", "Verification pending"],
-  },
-];
+  ["fraser-cleaning-demo", "Fraser Cleaning Demo", "Routine and deep home-cleaning comparison example."],
+  ["valley-cleaning-demo", "Valley Cleaning Demo", "Move-in and recurring cleaning comparison example."],
+  ["vedder-cleaning-demo", "Vedder Cleaning Demo", "Neighbourhood housekeeping comparison example."],
+  ["sardis-cleaning-demo", "Sardis Cleaning Demo", "Kitchen and bathroom cleaning comparison example."],
+].map(([id, name, description]) => ({ id, name, description, city: "Chilliwack", province: "BC", serviceCategoryIds: ["home-cleaning"], status: "sample", affiliation: "demo", bookingEnabled: false, tags: ["Fictional sample", "No verified claims"] }));
