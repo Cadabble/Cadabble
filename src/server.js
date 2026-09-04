@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { categories, searchProviders } from "./catalog.js";
+import { categories, findProviderById, searchProviders } from "./catalog.js";
 import { providers } from "./data/providers.js";
 
 const publicDirectory = resolve(fileURLToPath(new URL("../public", import.meta.url)));
@@ -30,8 +30,23 @@ export function buildServer() {
       return;
     }
 
+    const providerMatch = url.pathname.match(/^\/api\/v1\/providers\/([a-z0-9-]+)$/);
+    if (providerMatch) {
+      handleProviderDetail(providerMatch[1], response);
+      return;
+    }
+
     await serveStatic(url.pathname, response);
   });
+}
+
+function handleProviderDetail(providerId, response) {
+  const provider = findProviderById(providers, providerId);
+  if (!provider) {
+    sendJson(response, 404, { error: { code: "provider_not_found", message: "We couldn't find that provider." } });
+    return;
+  }
+  sendJson(response, 200, { data: provider, meta: { sampleData: true } });
 }
 
 function handleProviderSearch(url, response) {

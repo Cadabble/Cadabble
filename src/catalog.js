@@ -24,6 +24,11 @@ export function searchProviders(providers, criteria) {
   });
 }
 
+/** @param {readonly Provider[]} providers @param {string} id */
+export function findProviderById(providers, id) {
+  return providers.find((provider) => provider.id === id);
+}
+
 /** @param {string} value */
 function normalize(value) {
   return value.trim().toLocaleLowerCase("en-CA").replace(/\s+/g, " ");

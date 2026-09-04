@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { searchProviders } from "../src/catalog.js";
+import { findProviderById, searchProviders } from "../src/catalog.js";
 import { providers } from "../src/data/providers.js";
 
 test("search matches normalized terms across provider fields", () => {
@@ -15,4 +15,9 @@ test("category filters are exact", () => {
 
 test("all terms must match the same provider", () => {
   assert.equal(searchProviders(providers, { query: "Vancouver handyman" }).length, 0);
+});
+
+test("provider lookup uses stable public identifiers", () => {
+  assert.equal(findProviderById(providers, "harbour-pet-care")?.name, "Harbour Pet Care");
+  assert.equal(findProviderById(providers, "missing-provider"), undefined);
 });

@@ -4,6 +4,8 @@ const results = document.querySelector("#results");
 const empty = document.querySelector("#empty");
 const resultCount = document.querySelector("#result-count");
 const filters = document.querySelector("#filters");
+const dialog = document.querySelector("#provider-dialog");
+const dialogContent = document.querySelector("#dialog-content");
 let selectedCategory = "";
 
 async function loadProviders() {
@@ -42,11 +44,40 @@ function providerCard(provider) {
   const bottom = element("div", "card-bottom");
   const price = element("p", "price");
   price.append("From ", element("strong", "", formatPrice(provider.priceFromCents)), ` / ${provider.priceUnit}`);
-  const link = element("a", "", "View details →");
-  link.href = `mailto:sales@cadabble.com?subject=${encodeURIComponent(`Interest in ${provider.name}`)}`;
-  bottom.append(price, link);
+  const detailsButton = element("button", "details-button", "View details →");
+  detailsButton.type = "button";
+  detailsButton.addEventListener("click", () => showProvider(provider.id));
+  bottom.append(price, detailsButton);
   article.append(tags, bottom);
   return article;
+}
+
+async function showProvider(providerId) {
+  dialogContent.replaceChildren(element("p", "dialog-loading", "Loading provider details…"));
+  dialog.showModal();
+  try {
+    const response = await fetch(`/api/v1/providers/${encodeURIComponent(providerId)}`);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error?.message ?? "Provider details are unavailable.");
+    const provider = payload.data;
+    const heading = element("h2", "", provider.name);
+    heading.id = "dialog-title";
+    const status = element("p", provider.verified ? "verified dialog-status" : "reviewing dialog-status", provider.verified ? "✓ Sample verified profile" : "Verification review pending");
+    const facts = element("dl", "provider-facts");
+    addFact(facts, "Service", provider.category);
+    addFact(facts, "Location", `${provider.city}, ${provider.province}`);
+    addFact(facts, "Pricing", `${formatPrice(provider.priceFromCents)} / ${provider.priceUnit}`);
+    const note = element("p", "preview-note", "This is a product preview. Live availability and booking are not yet enabled.");
+    const contact = element("a", "request-button", "Join booking early access");
+    contact.href = `mailto:sales@cadabble.com?subject=${encodeURIComponent(`Booking early access: ${provider.name}`)}`;
+    dialogContent.replaceChildren(status, heading, element("p", "dialog-description", provider.description), facts, note, contact);
+  } catch (error) {
+    dialogContent.replaceChildren(messageCard(error instanceof Error ? error.message : "Provider details are unavailable."));
+  }
+}
+
+function addFact(list, label, value) {
+  list.append(element("dt", "", label), element("dd", "", value));
 }
 
 function messageCard(message) {
@@ -74,5 +105,7 @@ filters.addEventListener("click", (event) => {
   filters.querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === button));
   loadProviders();
 });
+dialog.querySelector(".dialog-close").addEventListener("click", () => dialog.close());
+dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
 
 loadProviders();

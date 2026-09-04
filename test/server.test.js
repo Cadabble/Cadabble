@@ -35,6 +35,17 @@ test("provider endpoint rejects unsupported categories and oversized input", asy
   });
 });
 
+test("provider detail endpoint returns a public profile and safe not-found errors", async () => {
+  await withServer(async (origin) => {
+    const found = await fetch(`${origin}/api/v1/providers/harbour-pet-care`);
+    assert.equal(found.status, 200);
+    assert.equal((await found.json()).data.name, "Harbour Pet Care");
+    const missing = await fetch(`${origin}/api/v1/providers/not-real`);
+    assert.equal(missing.status, 404);
+    assert.equal((await missing.json()).error.code, "provider_not_found");
+  });
+});
+
 test("unknown paths do not expose filesystem content", async () => {
   await withServer(async (origin) => {
     const response = await fetch(`${origin}/..%2Fpackage.json`);

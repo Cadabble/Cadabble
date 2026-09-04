@@ -31,6 +31,7 @@ Set `PORT` to change the listening port. Only numeric ports from 1–65535 are a
 
 - Search sample providers by service, city, or provider name.
 - Filter by category and compare transparent starting prices.
+- Open an accessible provider detail view without leaving the discovery flow.
 - Distinguish verified sample profiles from unverified data.
 - Continue toward booking without claiming live availability or accepting payment.
 - Use a versioned, validated JSON API (`GET /api/v1/providers`).
