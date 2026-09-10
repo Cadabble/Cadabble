@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,7 @@ import { findProviderById, searchProviders } from "./catalog.js";
 import { providers } from "./data/providers.js";
 import { serviceCategories } from "./data/service-categories.js";
 import { DiscoveryStore } from "./discovery.js";
+import { LeadRepository, leadStatuses } from "./lead-repository.js";
 import { BookingStore, publicBooking } from "./bookings.js";
 
 const publicDirectory = resolve(fileURLToPath(new URL("../public", import.meta.url)));
@@ -18,7 +20,14 @@ const contentTypes = {
   ".svg": "image/svg+xml",
 };
 
-export function buildServer({ bookingStore = new BookingStore(), discoveryStore = new DiscoveryStore({ providers, categories: serviceCategories }) } = {}) {
+export function buildServer(options = {}) {
+  const bookingStore = options.bookingStore ?? new BookingStore();
+  const leadRepository = options.leadRepository ?? new LeadRepository();
+  const discoveryStore = options.discoveryStore ?? new DiscoveryStore({ providers, categories: serviceCategories, leadRepository });
+  const configuredStaffToken = process.env.CADABBLE_STAFF_TOKEN;
+  if (!options.staffTokenHash && configuredStaffToken && configuredStaffToken.length < 32) throw new Error("CADABBLE_STAFF_TOKEN must be at least 32 characters.");
+  const staffTokenHash = options.staffTokenHash ?? (configuredStaffToken ? hashText(configuredStaffToken) : null);
+  const staffActorId = options.staffActorId ?? "staff_bootstrap";
   return createServer(async (request, response) => {
     setSecurityHeaders(response);
 
@@ -28,6 +37,14 @@ export function buildServer({ bookingStore = new BookingStore(), discoveryStore 
     }
 
     const url = new URL(request.url, "http://localhost");
+    if (url.pathname === "/api/v1/internal/provider-leads" && request.method === "GET") {
+      if (!authorizeStaff(request, staffTokenHash)) { sendJson(response, staffTokenHash ? 401 : 503, { error: { code: staffTokenHash ? "unauthorized" : "staff_access_not_configured", message: "Staff access is unavailable." } }); return; }
+      sendJson(response, 200, { data: leadRepository.listLeads() }); return;
+    }
+    const leadTransitionMatch = url.pathname.match(/^\/api\/v1\/internal\/provider-leads\/([a-f0-9-]+)\/status$/);
+    if (leadTransitionMatch && request.method === "POST") {
+      await handleLeadTransition(request, response, leadRepository, leadTransitionMatch[1], staffTokenHash, staffActorId); return;
+    }
     if (url.pathname === "/api/v1/discovery" && request.method === "POST") {
       await handleDiscovery(request, response, discoveryStore);
       return;
@@ -59,6 +76,26 @@ export function buildServer({ bookingStore = new BookingStore(), discoveryStore 
     await serveStatic(url.pathname, response);
   });
 }
+
+async function handleLeadTransition(request, response, repository, id, staffTokenHash, staffActorId) {
+  if (!authorizeStaff(request, staffTokenHash)) { sendJson(response, staffTokenHash ? 401 : 503, { error: { code: staffTokenHash ? "unauthorized" : "staff_access_not_configured", message: "Staff access is unavailable." } }); return; }
+  if (request.headers["content-type"] !== "application/json") { sendJson(response, 415, { error: { code: "unsupported_media_type", message: "Use JSON." } }); return; }
+  let body; try { body = await readJson(request); } catch { sendJson(response, 400, { error: { code: "invalid_json", message: "Check the lead update." } }); return; }
+  if (!leadStatuses.includes(body?.status) || !Number.isInteger(body?.expectedVersion)) { sendJson(response, 400, { error: { code: "invalid_lead_update", message: "Provide a valid status and version." } }); return; }
+  const result = repository.transition(id, body.status, staffActorId, body.expectedVersion);
+  if (result.error === "lead_not_found") { sendJson(response, 404, { error: { code: result.error, message: "Lead not found." } }); return; }
+  if (result.error) { sendJson(response, 409, { error: { code: result.error, message: "The lead could not move to that status." } }); return; }
+  sendJson(response, 200, { data: result.lead });
+}
+
+function authorizeStaff(request, expectedHash) {
+  if (!expectedHash) return false;
+  const header = request.headers.authorization;
+  if (typeof header !== "string" || !header.startsWith("Bearer ")) return false;
+  const actual = hashText(header.slice(7));
+  return actual.length === expectedHash.length && timingSafeEqual(actual, expectedHash);
+}
+function hashText(value) { return createHash("sha256").update(value).digest(); }
 
 async function handleBookingCreate(request, response, store) {
   if (!isSameOrigin(request) || request.headers["content-type"] !== "application/json") {

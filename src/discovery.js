@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { classifyService, resolveLocation, searchProviders } from "./catalog.js";
 
 export class DiscoveryStore {
-  constructor({ providers, categories, externalSearch } = {}) { this.providers = providers ?? []; this.categories = categories; this.externalSearch = externalSearch; this.unmetRequests = []; this.leads = []; }
+  constructor({ providers, categories, externalSearch, leadRepository } = {}) { this.providers = providers ?? []; this.categories = categories; this.externalSearch = externalSearch; this.leadRepository = leadRepository; this.unmetRequests = []; this.leads = []; }
 
   async discover({ query, location }) {
     const place = resolveLocation(query, location);
@@ -12,7 +12,8 @@ export class DiscoveryStore {
     const providers = searchProviders(this.providers, { categoryId: intent.category.id, location: place.location });
     if (providers.length) return { intent, location: place, safeguards, providers, externalBusinesses: [], needsLocation: false };
 
-    const demand = { id: randomUUID(), query, categoryId: intent.category.id, location: place.location, createdAt: new Date().toISOString() };
+    const demandInput = { query, categoryId: intent.category.id, location: place.location };
+    const demand = this.leadRepository?.recordDemand(demandInput) ?? { id: randomUUID(), ...demandInput, createdAt: new Date().toISOString() };
     this.unmetRequests.push(Object.freeze(demand));
     let externalBusinesses = [];
     if (this.externalSearch) {
@@ -24,6 +25,7 @@ export class DiscoveryStore {
   }
 
   createLead(business, demand) {
+    if (this.leadRepository) return this.leadRepository.upsertLead(business, demand);
     const duplicate = this.leads.find((lead) => lead.sourceUrl === business.sourceUrl && lead.categoryId === demand.categoryId);
     if (duplicate) return duplicate;
     const lead = Object.freeze({ id: randomUUID(), businessName: business.name, categoryId: demand.categoryId, serviceArea: business.serviceArea, website: business.website, publicPhone: business.publicPhone, publicEmail: business.publicEmail, sourceUrl: business.sourceUrl, discoveredAt: new Date().toISOString(), verificationStatus: "unverified_public_listing", demandId: demand.id, membershipStatus: "not_affiliated", outreachStatus: "not_contacted" });

@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import { buildServer } from "../src/server.js";
+import { DiscoveryStore } from "../src/discovery.js";
+import { LeadRepository } from "../src/lead-repository.js";
+import { providers } from "../src/data/providers.js";
+import { serviceCategories } from "../src/data/service-categories.js";
+import { createHash } from "node:crypto";
 
 test("serves the discovery page with security headers", async () => {
   await withServer(async (origin) => {
@@ -60,6 +65,24 @@ test("unknown paths do not expose filesystem content", async () => {
     const response = await fetch(`${origin}/..%2Fpackage.json`);
     assert.equal(response.status, 404);
   });
+});
+
+test("internal lead review requires staff auth and enforces transitions", async () => {
+  const repository = new LeadRepository();
+  const externalSearch = async () => [{ name: "Public Doors", serviceArea: "Chilliwack", sourceUrl: "https://directory.example.test/doors" }];
+  const discoveryStore = new DiscoveryStore({ providers, categories: serviceCategories, externalSearch, leadRepository: repository });
+  const token = "test-staff-token-with-enough-entropy";
+  const server = buildServer({ leadRepository: repository, discoveryStore, staffTokenHash: createHash("sha256").update(token).digest(), staffActorId: "staff_123" }).listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  try {
+    await fetch(`${origin}/api/v1/discovery`, { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify({ query: "garage door", location: "Chilliwack" }) });
+    assert.equal((await fetch(`${origin}/api/v1/internal/provider-leads`)).status, 401);
+    const listing = await fetch(`${origin}/api/v1/internal/provider-leads`, { headers: { Authorization: `Bearer ${token}` } });
+    const lead = (await listing.json()).data[0]; assert.equal(lead.status, "discovered");
+    const updated = await fetch(`${origin}/api/v1/internal/provider-leads/${lead.id}/status`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ status: "under_review", expectedVersion: 1 }) });
+    assert.equal(updated.status, 200); assert.equal((await updated.json()).data.events.length, 2);
+  } finally { server.close(); await once(server, "close"); }
 });
 
 async function withServer(run) {
