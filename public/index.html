@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Anna helps Chilliwack customers discover and compare any legitimate local service without invented claims." />
+    <title>Cadabble — Ask Anna in Chilliwack</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Cadabble home"><span>C</span> Cadabble</a>
+      <nav aria-label="Main navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="mailto:sales@cadabble.com">For providers</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Launching in Chilliwack, BC</p>
+          <h1>Ask Anna.<br /><em>Choose with trust.</em></h1>
+          <p class="intro">Tell Anna what you need—from a nanny or garage-door repair to automotive, wellness, or professional help. She separates Cadabble options, samples, and public listings so you always know what is verified.</p>
+        </div>
+
+        <form class="search-card" id="search-form">
+          <label for="search">What do you need help with?</label>
+          <div class="search-row">
+            <input id="search" name="q" type="search" maxlength="200" placeholder="Try “garage-door repair”" autocomplete="off" />
+            <button type="submit">Ask Anna <span aria-hidden="true">→</span></button>
+          </div>
+          <label for="location">Location <span>(optional)</span></label>
+          <input id="location" name="location" maxlength="120" placeholder="Defaults to Chilliwack, BC" autocomplete="address-level2" />
+          <p><span class="pulse" aria-hidden="true"></span> Chilliwack launch preview · Anna never invents providers</p>
+        </form>
+      </section>
+
+      <section class="catalog" aria-labelledby="catalog-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Explore nearby</p><h2 id="catalog-title">Services people count on</h2></div>
+          <p id="result-count" aria-live="polite"></p>
+        </div>
+        <div class="filters" id="filters" aria-label="Filter providers">
+          <button class="active" data-query="" type="button">All services</button>
+          <button data-query="home cleaning" type="button">Home cleaning</button>
+          <button data-query="auto services" type="button">Automotive</button>
+          <button data-query="fitness trainer" type="button">Health & fitness</button>
+          <button data-query="accounting" type="button">Professional</button>
+        </div>
+        <div class="provider-grid" id="results" aria-live="polite"></div>
+        <div class="empty" id="empty" hidden>
+          <h3>No Cadabble provider yet</h3><p>Anna recorded the unmet need for provider recruitment. No business, claim, or contact detail was invented.</p>
+        </div>
+      </section>
+
+      <section class="steps" id="how-it-works">
+        <p class="eyebrow">One clear path</p><h2>From need to done.</h2>
+        <ol>
+          <li><span>01</span><strong>Search</strong><p>Tell us what would make today easier.</p></li>
+          <li><span>02</span><strong>Find</strong><p>Compare providers and transparent details.</p></li>
+          <li><span>03</span><strong>Book & pay</strong><p>Coming next: a secure, confirmed checkout.</p></li>
+          <li><span>04</span><strong>Go</strong><p>Get the job done with support close by.</p></li>
+        </ol>
+      </section>
+      <section class="trust-section" aria-labelledby="trust-title">
+        <div><p class="eyebrow">Confidence at every step</p><h2 id="trust-title">A marketplace, not a mystery.</h2></div>
+        <div class="trust-points">
+          <article><strong>Clear trust signals</strong><p>Verification status is shown plainly—never implied or invented.</p></article>
+          <article><strong>Human-sized choices</strong><p>Compare useful details without ads disguised as recommendations.</p></article>
+          <article><strong>Payment truth</strong><p>Bookings and payments will only be confirmed by secure server-side events.</p></article>
+        </div>
+      </section>
+    </main>
+    <dialog id="provider-dialog" aria-labelledby="dialog-title">
+      <button class="dialog-close" type="button" aria-label="Close provider details">×</button>
+      <div id="dialog-content"></div>
+    </dialog>
+    <footer><div class="brand"><span>C</span> Cadabble</div><p>Built for neighbourhoods across Canada.</p></footer>
+  </body>
+</html>
