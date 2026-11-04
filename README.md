@@ -78,8 +78,3 @@ Founder, Cadabble Inc.
 
 ⸻
 
-⚡ Fun Fact
-
-Cadabble is being built with an agent-first architecture, where AI doesn’t just assist — it actively operates.
-
-
