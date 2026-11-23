@@ -65,7 +65,7 @@ We’re looking to work with:
 
 📈 Vision
 
-To become the default interface for real-world decision-making.
+To become the default interface for real-world local city decision-making.
 
 ⸻
 
